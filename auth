@@ -1,4 +1,5 @@
-#!/bin/python
+#!/usr/bin/python3
+# -*- coding: future_fstrings -*-
 
 import requests
 from bs4 import BeautifulSoup as bs
@@ -16,10 +17,11 @@ nc_username = "username"
 
 def main(): 
 	domain = os.getenv('CERTBOT_DOMAIN')
-	records = get_host_records(domain)
-	records = clean_old_challenges(records)
-	records = append_challenge_tag(records)
-	set_host_records(domain,records)
+	[SUB, SLD, TLD] = domain.split('.')
+	records = get_host_records(domain, SLD, TLD)
+	records = clean_old_challenges(records, SUB)
+	records = append_challenge_tag(records, SUB)
+	set_host_records(domain, records, SLD, TLD)
 	time.sleep(60)
 
 def method_url(cmd_name, *args, **kwargs):
@@ -35,48 +37,46 @@ def method_url(cmd_name, *args, **kwargs):
 		api_url = "https://api.namecheap.com/xml.response"
 	return f"{api_url}?ApiUser={api_username}&ApiKey={api_key}&UserName={nc_username}&ClientIp={client_ip}&Command={cmd_name}"
 
-def get_host_records(domain):
+def get_host_records(domain, SLD, TLD):
 	"""
 	Return list of <Host> elements.
 	Does not yet support mutlipart TLDs.
 	"""
 	url = method_url("namecheap.domains.dns.getHosts", sandbox=SANDBOX)
-	[SLD, TLD] = domain.split('.')
 	url = url + f"&SLD={SLD}&TLD={TLD}"
 	result = requests.get(url).text
 	soup = bs(result, 'lxml')
 	hosts = soup.find_all('host')
 	return hosts
 
-def clean_old_challenges(records):
+def clean_old_challenges(records, SUB):
 	"""
 	Removes all old _acme-challenge TXT tags.
 	Returns list of <Host> elements,
 	but without any challenge tags.
 	"""
 	for record in records.copy():
-		if record['name'] == "_acme-challenge":
+		if record['name'] == f"_acme-challenge.{SUB}":
 			records.remove(record)
 	return records
 
-def append_challenge_tag(records):
+def append_challenge_tag(records, SUB):
 	"""
 	Generate a new challenge tag and append to records.
 	Returns list of <Host> elements,
 	with a new challenge tag appended.
 	"""
 	challenge = os.getenv('CERTBOT_VALIDATION')
-	challenge_tag = bs(f'<host name="_acme-challenge" type="TXT" address="{challenge}" ttl="60"', 'lxml').body.next
+	challenge_tag = bs(f'<host name="_acme-challenge.{SUB}" type="TXT" address="{challenge}" ttl="60"', 'lxml').body.next
 	records.append(challenge_tag)
 	return records
 
-def set_host_records(domain,records):
+def set_host_records(domain,records, SLD, TLD):
 	"""
 	Updates records for domain.
 	Currently only cares about name, type, address, and optional ttl.
 	"""
 	url = method_url("namecheap.domains.dns.setHosts", sandbox=SANDBOX)
-	[SLD, TLD] = domain.split('.')
 	url = url + f"&SLD={SLD}&TLD={TLD}"
 	n = 1
 	for record in records:
