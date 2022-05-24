@@ -7,6 +7,7 @@ certbot manual auth hook for DNS-01 with namecheap
   - beautifulsoup
   - lxml
   - requests-cache (optional, currently commented out)
+  - future-fstrings (required for python < 3.6)
 - certbot
 - namecheap api key https://www.namecheap.com/support/knowledgebase/article.aspx/9739/63/api--faq#c
 
