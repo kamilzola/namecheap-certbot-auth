@@ -1,6 +1,8 @@
 # namecheap
 certbot manual auth hook for DNS-01 with namecheap
 
+this fork targets my own needs which are python 3.5 and subdomain use (something.example.com)
+
 ## requirements
 - python
   - requests
